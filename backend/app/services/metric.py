@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.latency_segments import latency_segment_service
 from app.store import store
 
 MODULE = "metric"
@@ -59,3 +60,17 @@ class MetricService:
         entry["pending"] = target != STATUS_ORDER[-1]
         entry["abnormal"] = action in NEGATIVE_ACTIONS
         return entry, f"指标采集器已{action}"
+
+    def latency_result(self, entry_id: int) -> dict[str, Any] | None:
+        """读取该采集器关联作业的延迟分段数据结果。
+
+        与延迟追踪模块读同一份快照，并沿用快照里的指标采集版本；没有快照时返回 None。
+        """
+        entry = store.find(MODULE, entry_id)
+        if entry is None:
+            return None
+        job_name = str(entry.get("作业名称") or "").strip()
+        for snapshot in latency_segment_service.list_latest():
+            if snapshot.get("流作业名") == job_name:
+                return snapshot
+        return None
